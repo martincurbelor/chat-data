@@ -45,15 +45,15 @@ def build_historico(conn):
     # ── Resumen diario ────────────────────────────────────────────────────────
     rows = fetch(conn, """
         SELECT
-            fecha,
-            YEAR(fecha)  AS anio,
+            DATE(fecha)       AS fecha,
+            YEAR(DATE(fecha)) AS anio,
             SUM(CASE WHEN TRIM(UPPER(categoria)) = 'COMBUSTIBLE' THEN importe ELSE 0 END) AS combustible,
             SUM(CASE WHEN TRIM(UPPER(categoria)) != 'COMBUSTIBLE' THEN importe ELSE 0 END) AS mini,
             SUM(importe)                  AS total,
             COUNT(DISTINCT nro_ticket)    AS transacciones
         FROM ventas_diarias
-        WHERE YEAR(fecha) IN (%s, %s)
-        GROUP BY fecha
+        WHERE YEAR(DATE(fecha)) IN (%s, %s)
+        GROUP BY DATE(fecha), YEAR(DATE(fecha))
         ORDER BY fecha
     """, anios)
 
@@ -72,16 +72,16 @@ def build_historico(conn):
     # ── Resumen mensual ───────────────────────────────────────────────────────
     rows = fetch(conn, """
         SELECT
-            YEAR(fecha)  AS anio,
-            MONTH(fecha) AS mes,
+            YEAR(DATE(fecha))  AS anio,
+            MONTH(DATE(fecha)) AS mes,
             SUM(CASE WHEN TRIM(UPPER(categoria)) = 'COMBUSTIBLE' THEN importe ELSE 0 END) AS combustible,
             SUM(CASE WHEN TRIM(UPPER(categoria)) != 'COMBUSTIBLE' THEN importe ELSE 0 END) AS mini,
-            SUM(importe)                  AS total,
-            COUNT(DISTINCT nro_ticket)    AS transacciones,
-            COUNT(DISTINCT fecha)         AS dias_con_venta
+            SUM(importe)                        AS total,
+            COUNT(DISTINCT nro_ticket)          AS transacciones,
+            COUNT(DISTINCT DATE(fecha))         AS dias_con_venta
         FROM ventas_diarias
-        WHERE YEAR(fecha) IN (%s, %s)
-        GROUP BY YEAR(fecha), MONTH(fecha)
+        WHERE YEAR(DATE(fecha)) IN (%s, %s)
+        GROUP BY YEAR(DATE(fecha)), MONTH(DATE(fecha))
         ORDER BY anio, mes
     """, anios)
 
@@ -103,13 +103,13 @@ def build_historico(conn):
     rows = fetch(conn, """
         SELECT
             producto,
-            TRIM(UPPER(categoria)) AS categoria,
-            YEAR(fecha) AS anio,
-            SUM(importe) AS total,
-            SUM(cantidad) AS cantidad
+            TRIM(UPPER(categoria))  AS categoria,
+            YEAR(DATE(fecha))       AS anio,
+            SUM(importe)            AS total,
+            SUM(cantidad)           AS cantidad
         FROM ventas_diarias
-        WHERE YEAR(fecha) IN (%s, %s)
-        GROUP BY producto, TRIM(UPPER(categoria)), YEAR(fecha)
+        WHERE YEAR(DATE(fecha)) IN (%s, %s)
+        GROUP BY producto, TRIM(UPPER(categoria)), YEAR(DATE(fecha))
         ORDER BY total DESC
     """, anios)
 
@@ -131,13 +131,13 @@ def build_historico(conn):
     # ── Por categoría ─────────────────────────────────────────────────────────
     rows = fetch(conn, """
         SELECT
-            TRIM(UPPER(categoria)) AS categoria,
-            YEAR(fecha) AS anio,
-            SUM(importe) AS total,
+            TRIM(UPPER(categoria))     AS categoria,
+            YEAR(DATE(fecha))          AS anio,
+            SUM(importe)               AS total,
             COUNT(DISTINCT nro_ticket) AS transacciones
         FROM ventas_diarias
-        WHERE YEAR(fecha) IN (%s, %s)
-        GROUP BY TRIM(UPPER(categoria)), YEAR(fecha)
+        WHERE YEAR(DATE(fecha)) IN (%s, %s)
+        GROUP BY TRIM(UPPER(categoria)), YEAR(DATE(fecha))
         ORDER BY total DESC
     """, anios)
 
@@ -152,13 +152,13 @@ def build_historico(conn):
     # ── Distribución horaria ──────────────────────────────────────────────────
     rows = fetch(conn, """
         SELECT
-            HOUR(hora) AS hora,
-            YEAR(fecha) AS anio,
-            SUM(importe) AS total,
+            HOUR(hora)                 AS hora,
+            YEAR(DATE(fecha))          AS anio,
+            SUM(importe)               AS total,
             COUNT(DISTINCT nro_ticket) AS transacciones
         FROM ventas_diarias
-        WHERE YEAR(fecha) IN (%s, %s) AND hora IS NOT NULL
-        GROUP BY HOUR(hora), YEAR(fecha)
+        WHERE YEAR(DATE(fecha)) IN (%s, %s) AND hora IS NOT NULL
+        GROUP BY HOUR(hora), YEAR(DATE(fecha))
         ORDER BY hora
     """, anios)
 
@@ -173,15 +173,15 @@ def build_historico(conn):
     # ── Ticket stats ──────────────────────────────────────────────────────────
     rows = fetch(conn, """
         SELECT
-            YEAR(fecha) AS anio,
+            YEAR(DATE(fecha))               AS anio,
             SUM(importe)                    AS total,
             COUNT(DISTINCT nro_ticket)      AS transacciones,
             MAX(importe)                    AS max_ticket,
-            MIN(fecha)                      AS desde,
-            MAX(fecha)                      AS hasta
+            MIN(DATE(fecha))                AS desde,
+            MAX(DATE(fecha))                AS hasta
         FROM ventas_diarias
-        WHERE YEAR(fecha) IN (%s, %s)
-        GROUP BY YEAR(fecha)
+        WHERE YEAR(DATE(fecha)) IN (%s, %s)
+        GROUP BY YEAR(DATE(fecha))
     """, anios)
 
     ticket_stats = {}
@@ -217,9 +217,9 @@ def main():
 
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, cls=Encoder, ensure_ascii=False, indent=2)
+        json.dump(data, f, cls=Encoder, ensure_ascii=False)
 
-    print(f"[OK] historico.json generado → {OUTPUT_PATH}")
+    print(f"[OK] historico.json generado: {OUTPUT_PATH}")
 
 
 if __name__ == "__main__":
